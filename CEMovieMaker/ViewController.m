@@ -10,6 +10,9 @@
 #import "CEMovieMaker.h"
 #import "AVAsset+Extras.h"
 #import <AVKit/AVKit.h>
+#import "CEMovieMaker-Bridging-Header.h"
+#import "CEMovieMaker-Swift.h"
+
 @import MediaPlayer;
 
 @interface ViewController ()
@@ -74,17 +77,38 @@
 {
     NSMutableArray *frames = [[NSMutableArray alloc] init];
     
+    
     UIImage *icon1 = [UIImage imageNamed:@"icon1"];
     UIImage *icon2 = [UIImage imageNamed:@"icon2"];
     UIImage *icon3 = [UIImage imageNamed:@"icon3"];
-    NSURL *audioURL = [NSURL URLWithString:@"audioURL"];
+    //RenderSettings *rs = [RenderSettings new];
+    //ImageAnimator *animator =
+    NSURL *audioURL = [NSURL URLWithString:@"PUT_AUDIO_URL_HERE"];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
         AVAsset *audioAsset = [AVAsset assetWithURL:audioURL];
-        NSURL *imageURL = [NSURL URLWithString:@"imageURL"];
+        NSURL *imageURL = [NSURL URLWithString:@"PUT_IMAGE_URL_HERE"];
         NSData *imageData = [NSData dataWithContentsOfURL:imageURL];
         UIImage *image = [UIImage imageWithData:imageData];
-        NSInteger duration = CMTimeGetSeconds(audioAsset.duration)/2;//(1841696/1000)/2;
+        NSInteger duration = CMTimeGetSeconds(audioAsset.duration);//(1841696/1000)/2;
+        RenderSettings *rs = [RenderSettings new];
+        rs.size = image.size;
+        rs.targetDuration = duration;
+        NSLog(@"td: %f d: %lu", rs.targetDuration, duration);
+        ImageAnimator *ia = [[ImageAnimator alloc] initWithRenderSettings:rs];
+        ia.images = @[image];
+        
+        [ia renderWithCompletion:^(NSURL * _Nullable outputURL) {
+            NSLog(@"done render: %@", outputURL);
+            AVPlayerItem *playerItem = [VideoWriter multiplexVideo:outputURL audioAsset:audioAsset];
+            AVPlayerViewController *vc = [[AVPlayerViewController alloc] init];
+            AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem:playerItem];
+            vc.player = player;
+            [self presentViewController:vc animated:true completion:nil];
+            //[self viewMovieAtUrl:outputURL];
+        }];
+        return;
+         
         NSDictionary *settings = [CEMovieMaker videoSettingsWithCodec:AVVideoCodecH264 withWidth:image.size.width andHeight:image.size.height];
         self.movieMaker = [[CEMovieMaker alloc] initWithSettings:settings];
         /*
@@ -99,13 +123,16 @@
         }];
          */
         
-        [self.movieMaker createMovieFromImage:image duration:duration withCompletion:^(NSURL *fileURL) {
+        [self.movieMaker createMovieFromImage:image duration:duration/2 withCompletion:^(NSURL *fileURL) {
             NSLog(@"fileULR: %@", fileURL);
+            [ImageAnimator saveToLibraryWithVideoURL:fileURL];
+            /*
             AVPlayerItem *playerItem = [self multiplexVideo:fileURL withAudio:audioAsset];
             AVPlayerViewController *vc = [[AVPlayerViewController alloc] init];
             AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem:playerItem];
             vc.player = player;
             [self presentViewController:vc animated:true completion:nil];
+             */
 //            [self viewMovieAtUrl:fileURL];
         }];
     });

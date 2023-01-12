@@ -1,6 +1,4 @@
 #import "AVAsset+Extras.h"
-#import <objc/runtime.h>
-
 
 @implementation AVPlayerItem (Extras)
 

@@ -11,7 +11,7 @@ import AVFoundation
 import UIKit
 import Photos
 
-class VideoWriter {
+@objc class VideoWriter: NSObject {
     
     let renderSettings: RenderSettings
     
@@ -21,6 +21,69 @@ class VideoWriter {
     
     var isReadyForData: Bool {
         return videoWriterInput?.isReadyForMoreMediaData ?? false
+    }
+    
+    /*
+     - (AVPlayerItem *)multiplexVideo:(NSURL *)videoURL withAudio:(AVAsset *)audioAsset  {
+         //AVAsset *audioAsset = [AVAsset assetWithURL:audioURL];
+         AVAsset *videoAsset = [AVAsset assetWithURL:videoURL];
+         NSError *error = nil;
+         AVMutableComposition* mixAsset = [[AVMutableComposition alloc] init];
+         AVAssetTrack *vt = [videoAsset firstVideoTrack];
+         if (vt == nil) {
+             vt = [audioAsset firstVideoTrack];
+         }
+         __block AVAssetTrack *at = [audioAsset firstAudioTrack];
+         NSLog(@"duratioN: %f", CMTimeGetSeconds(audioAsset.duration));
+         if (at == nil) {
+             at = [videoAsset firstAudioTrack];
+             if (!at) {
+                 AVPlayerItem *pi = [AVPlayerItem playerItemWithAsset:audioAsset];
+                 //AVPlayer *player = [AVPlayer playerWithPlayerItem:pi];
+                 //[player play];
+                 /*
+                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                     at = [[[pi tracks] firstObject] assetTrack];
+                     NSLog(@"audio track: %@ t:%@ pi: %@", at, [pi tracks], pi);
+                 });*/
+                 at = [[[pi tracks] firstObject] assetTrack];
+             }
+         }
+         NSLog(@"audioTrack: %@", at);
+         AVMutableCompositionTrack* audioTrack = [mixAsset addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+         [audioTrack insertTimeRange:at.timeRange ofTrack:at atTime:kCMTimeZero error: &error];
+         AVMutableCompositionTrack* videoTrack = [mixAsset addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+         [videoTrack insertTimeRange:vt.timeRange ofTrack:vt atTime:kCMTimeZero error: &error];
+         //DLog(@"timeDiff: %f", [mixAsset timeDifference]);
+         AVPlayerItem *playerItem = [AVPlayerItem playerItemWithAsset:mixAsset];
+         AVURLAsset *as = (AVURLAsset *)audioAsset;
+         playerItem.originalPaths = @[videoURL, as.URL];
+         playerItem.alternateTitle = [videoURL.lastPathComponent.stringByDeletingPathExtension stringByAppendingPathExtension:@"mp4"];
+         return playerItem;
+     }
+     */
+    
+    @objc class func multiplexVideo(_ URL: URL, audioAsset: AVAsset) -> AVPlayerItem {
+        let videoAsset = AVAsset(url: URL)
+        let mixAsset = AVMutableComposition()
+        var vt = videoAsset.firstVideoTrack()
+        if vt == nil {
+            vt = audioAsset.firstVideoTrack()
+        }
+        var at = audioAsset.firstAudioTrack()
+        if at == nil {
+            at = videoAsset.firstAudioTrack()
+        }
+        print("audioTrack: \(at)")
+        let audioTrack = mixAsset.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        try? audioTrack?.insertTimeRange(at.timeRange, of: at, at: CMTime.zero)
+        let videoTrack = mixAsset.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        try? videoTrack?.insertTimeRange(vt.timeRange, of: vt, at: CMTime.zero)
+        let playerItem = AVPlayerItem(asset: mixAsset)
+        if let audioA = audioAsset as? AVURLAsset {
+            playerItem.originalPaths = [URL, audioA.url];
+        }
+        return playerItem
     }
     
     class func pixelBufferFromImage(image: UIImage, pixelBufferPool: CVPixelBufferPool, size: CGSize) -> CVPixelBuffer {
@@ -145,16 +208,17 @@ class VideoWriter {
     }
 }
 
-struct RenderSettings {
+@objc class RenderSettings: NSObject {
     
-    var size : CGSize = .zero
-    var fps: Int32 = 6   // frames per second
-    var avCodecKey = AVVideoCodecType.h264
-    var videoFilename = "render"
-    var videoFilenameExt = "mp4"
+    @objc var size : CGSize = .zero
+    @objc var fps: Int32 = 1   // frames per second
+    @objc var targetDuration: Float64 = 0.0
+    @objc var avCodecKey = AVVideoCodecType.h264
+    @objc var videoFilename = "render"
+    @objc var videoFilenameExt = "mp4"
     
     
-    var outputURL: URL {
+    @objc var outputURL: URL {
         // Use the CachesDirectory so the rendered video file sticks around as long as we need it to.
         // Using the CachesDirectory ensures the file won't be included in a backup of the app.
         let fileManager = FileManager.default
@@ -165,18 +229,18 @@ struct RenderSettings {
     }
 }
 
-class ImageAnimator {
+@objc class ImageAnimator: NSObject {
     
     // Apple suggests a timescale of 600 because it's a multiple of standard video rates 24, 25, 30, 60 fps etc.
     static let kTimescale: Int32 = 600
     
-    let settings: RenderSettings
-    let videoWriter: VideoWriter
-    var images: [UIImage]!
+    @objc let settings: RenderSettings
+    @objc let videoWriter: VideoWriter
+    @objc var images: [UIImage]!
     
     var frameNum = 0
     
-    class func saveToLibrary(videoURL: URL) {
+    @objc class func saveToLibrary(videoURL: URL) {
         PHPhotoLibrary.requestAuthorization { status in
             guard status == .authorized else { return }
             
@@ -199,13 +263,12 @@ class ImageAnimator {
         }
     }
     
-    init(renderSettings: RenderSettings) {
+    @objc init(renderSettings: RenderSettings) {
         settings = renderSettings
         videoWriter = VideoWriter(renderSettings: settings)
         //images = loadImages()
     }
-    
-    func render(completion: (()->Void)?) {
+    @objc func render(completion: ((URL?)->Void)?) {
         
         // The VideoWriter will fail if a file exists at the URL, so clear it out first.
         ImageAnimator.removeFileAtURL(fileURL: settings.outputURL)
@@ -213,7 +276,7 @@ class ImageAnimator {
         videoWriter.start()
         videoWriter.render(appendPixelBuffers: appendPixelBuffers) {
             ImageAnimator.saveToLibrary(videoURL: self.settings.outputURL)
-            completion?()
+            completion?(self.settings.outputURL)
         }
         
     }
@@ -222,21 +285,34 @@ class ImageAnimator {
     func appendPixelBuffers(writer: VideoWriter) -> Bool {
         
         let frameDuration = CMTimeMake(value: Int64(ImageAnimator.kTimescale / settings.fps), timescale: ImageAnimator.kTimescale)
-        
+        var sec = CMTimeGetSeconds(frameDuration)
+        let isOne = images.count == 1
+        print("frameduration: \(frameDuration) seconds: \(sec) imagesCount: \(images.count) isOne: \(isOne)")
         while !images.isEmpty {
             
             if writer.isReadyForData == false {
                 // Inform writer we have more buffers to write.
                 return false
             }
-            
             let image = images.removeFirst()
             let presentationTime = CMTimeMultiply(frameDuration, multiplier: Int32(frameNum))
-            let success = videoWriter.addImage(image: image, withPresentationTime: presentationTime)
+            var success = videoWriter.addImage(image: image, withPresentationTime: presentationTime)
             if success == false {
                 fatalError("addImage() failed")
             }
-            
+            if (isOne) {
+                print("td: \(settings.targetDuration)")
+                if settings.targetDuration > 0 {
+                    //let presentationEnd = CMTimeMultiply(frameDuration, multiplier: Int32(settings.targetDuration))
+                    let presentationEnd = CMTimeMakeWithSeconds(settings.targetDuration/2, preferredTimescale: ImageAnimator.kTimescale)
+                    sec = CMTimeGetSeconds(presentationEnd)
+                    print("presentationEnd: \(presentationEnd) seconds: \(sec)")
+                    success = videoWriter.addImage(image: image, withPresentationTime: presentationEnd)
+                    if success == false {
+                        print("fail")
+                    }
+                }
+            }
             frameNum += 1
         }
         
