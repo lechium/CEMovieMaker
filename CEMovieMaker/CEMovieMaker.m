@@ -45,9 +45,14 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
         NSParameterAssert([self.assetWriter canAddInput:self.writerInput]);
         
         [self.assetWriter addInput:self.writerInput];
+        //NSMutableDictionary *bufferAttributes = [NSMutableDictionary new];
+        //bufferAttributes[(NSString*)kCVPixelBufferPixelFormatTypeKey] = @(kCVPixelFormatType_32ARGB);
         
-        NSDictionary *bufferAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
-                                          [NSNumber numberWithInt:kCVPixelFormatType_32ARGB], kCVPixelBufferPixelFormatTypeKey, nil];
+        NSDictionary *bufferAttributes = @{(NSString*)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32ARGB),
+                                           (NSString*)kCVPixelBufferWidthKey: [self.videoSettings objectForKey:AVVideoWidthKey],
+                                           (NSString*)kCVPixelBufferHeightKey: [self.videoSettings objectForKey:AVVideoHeightKey]
+        };
+        //NSDictionary *bufferAttributes = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:kCVPixelFormatType_32ARGB], kCVPixelBufferPixelFormatTypeKey, nil];
         
         _bufferAdapter = [[AVAssetWriterInputPixelBufferAdaptor alloc] initWithAssetWriterInput:self.writerInput sourcePixelBufferAttributes:bufferAttributes];
         _frameTime = CMTimeMake(1, 10);
@@ -69,8 +74,32 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
     } withCompletion:completion];
 }
 
-- (void) createMovieFromSource:(NSArray *)images extractor:(CEMovieMakerUIImageExtractor)extractor withCompletion:(CEMovieMakerCompletion)completion;
-{
+- (void)createMovieFromImage:(UIImage *)image duration:(NSInteger)duration withCompletion:(CEMovieMakerCompletion)completion {
+    self.completionBlock = completion;
+    [self.assetWriter startWriting];
+    [self.assetWriter startSessionAtSourceTime:kCMTimeZero];
+    
+    dispatch_queue_t mediaInputQueue = dispatch_queue_create("mediaInputQueue", NULL);
+    [self.writerInput requestMediaDataWhenReadyOnQueue:mediaInputQueue usingBlock:^{
+        if ([self.writerInput isReadyForMoreMediaData]) {
+            CVPixelBufferRef sampleBuffer = [self newPixelBufferFromCGImage:[image CGImage]];
+            [self.bufferAdapter appendPixelBuffer:sampleBuffer withPresentationTime:kCMTimeZero];
+            //CMTime presentTime = CMTimeAdd(kCMTimeZero, CMTimeMakeWithSeconds(duration, NSEC_PER_SEC));
+            [self.bufferAdapter appendPixelBuffer:sampleBuffer withPresentationTime:CMTimeMakeWithSeconds(duration, 600)];
+            CFRelease(sampleBuffer);
+        }
+        [self.writerInput markAsFinished];
+        [self.assetWriter finishWritingWithCompletionHandler:^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.completionBlock(self.fileURL);
+            });
+        }];
+        
+        CVPixelBufferPoolRelease(self.bufferAdapter.pixelBufferPool);
+    }];
+}
+
+- (void) createMovieFromSource:(NSArray *)images extractor:(CEMovieMakerUIImageExtractor)extractor withCompletion:(CEMovieMakerCompletion)completion {
     self.completionBlock = completion;
     
     [self.assetWriter startWriting];
@@ -125,8 +154,7 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
 }
 
 
-- (CVPixelBufferRef)newPixelBufferFromCGImage:(CGImageRef)image
-{
+- (CVPixelBufferRef)newPixelBufferFromCGImage:(CGImageRef)image {
     NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
                              [NSNumber numberWithBool:YES], kCVPixelBufferCGImageCompatibilityKey,
                              [NSNumber numberWithBool:YES], kCVPixelBufferCGBitmapContextCompatibilityKey,
@@ -137,14 +165,15 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
     CGFloat frameWidth = [[self.videoSettings objectForKey:AVVideoWidthKey] floatValue];
     CGFloat frameHeight = [[self.videoSettings objectForKey:AVVideoHeightKey] floatValue];
     
-    
+    CVReturn status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, self.bufferAdapter.pixelBufferPool, &pxbuffer);
+    /*
     CVReturn status = CVPixelBufferCreate(kCFAllocatorDefault,
                                           frameWidth,
                                           frameHeight,
                                           kCVPixelFormatType_32ARGB,
                                           (__bridge CFDictionaryRef) options,
                                           &pxbuffer);
-    
+    */
     NSParameterAssert(status == kCVReturnSuccess && pxbuffer != NULL);
     
     CVPixelBufferLockBaseAddress(pxbuffer, 0);
@@ -157,7 +186,7 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
                                                  frameWidth,
                                                  frameHeight,
                                                  8,
-                                                 4 * frameWidth,
+                                                 CVPixelBufferGetBytesPerRow(pxbuffer),
                                                  rgbColorSpace,
                                                  (CGBitmapInfo)kCGImageAlphaNoneSkipFirst);
     NSParameterAssert(context);
@@ -175,14 +204,12 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
     return pxbuffer;
 }
 
-+ (NSDictionary *)videoSettingsWithCodec:(NSString *)codec withWidth:(CGFloat)width andHeight:(CGFloat)height
-{
++ (NSDictionary *)videoSettingsWithCodec:(NSString *)codec withWidth:(CGFloat)width andHeight:(CGFloat)height {
     
     if ((int)width % 16 != 0 ) {
         NSLog(@"Warning: video settings width must be divisible by 16.");
     }
-    
-    NSDictionary *videoSettings = @{AVVideoCodecKey : AVVideoCodecH264,
+    NSDictionary *videoSettings = @{AVVideoCodecKey : AVVideoCodecTypeH264,
                                     AVVideoWidthKey : [NSNumber numberWithInt:(int)width],
                                     AVVideoHeightKey : [NSNumber numberWithInt:(int)height]};
     

@@ -15,6 +15,8 @@
 		321B3F4619CA08C50077829E /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 321B3F4419CA08C50077829E /* LaunchScreen.xib */; };
 		321B3F5219CA08C50077829E /* CEMovieMakerTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 321B3F5119CA08C50077829E /* CEMovieMakerTests.m */; };
 		321B3F5D19CA08DE0077829E /* CEMovieMaker.m in Sources */ = {isa = PBXBuildFile; fileRef = 321B3F5C19CA08DE0077829E /* CEMovieMaker.m */; };
+		4C0A1ADA296E5BC000CC8B55 /* AVAsset+Extras.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C0A1AD7296E5BC000CC8B55 /* AVAsset+Extras.m */; };
+		4C0A1AF8296F303E00CC8B55 /* MovieMaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C0A1AF7296F303E00CC8B55 /* MovieMaker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +45,10 @@
 		321B3F5119CA08C50077829E /* CEMovieMakerTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CEMovieMakerTests.m; sourceTree = "<group>"; };
 		321B3F5B19CA08DE0077829E /* CEMovieMaker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CEMovieMaker.h; sourceTree = "<group>"; };
 		321B3F5C19CA08DE0077829E /* CEMovieMaker.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CEMovieMaker.m; sourceTree = "<group>"; };
+		4C0A1AD6296E5BC000CC8B55 /* AVAsset+Extras.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "AVAsset+Extras.h"; sourceTree = "<group>"; };
+		4C0A1AD7296E5BC000CC8B55 /* AVAsset+Extras.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "AVAsset+Extras.m"; sourceTree = "<group>"; };
+		4C0A1AF6296F303D00CC8B55 /* CEMovieMaker-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CEMovieMaker-Bridging-Header.h"; sourceTree = "<group>"; };
+		4C0A1AF7296F303E00CC8B55 /* MovieMaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovieMaker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,12 +94,16 @@
 				321B3F3A19CA08C50077829E /* AppDelegate.m */,
 				321B3F3C19CA08C50077829E /* ViewController.h */,
 				321B3F3D19CA08C50077829E /* ViewController.m */,
+				4C0A1AF7296F303E00CC8B55 /* MovieMaker.swift */,
+				4C0A1AD6296E5BC000CC8B55 /* AVAsset+Extras.h */,
+				4C0A1AD7296E5BC000CC8B55 /* AVAsset+Extras.m */,
 				321B3F5B19CA08DE0077829E /* CEMovieMaker.h */,
 				321B3F5C19CA08DE0077829E /* CEMovieMaker.m */,
 				321B3F3F19CA08C50077829E /* Main.storyboard */,
 				321B3F4219CA08C50077829E /* Images.xcassets */,
 				321B3F4419CA08C50077829E /* LaunchScreen.xib */,
 				321B3F3519CA08C50077829E /* Supporting Files */,
+				4C0A1AF6296F303D00CC8B55 /* CEMovieMaker-Bridging-Header.h */,
 			);
 			path = CEMovieMaker;
 			sourceTree = "<group>";
@@ -173,6 +183,7 @@
 				TargetAttributes = {
 					321B3F3119CA08C50077829E = {
 						CreatedOnToolsVersion = 6.0;
+						LastSwiftMigration = 1420;
 					};
 					321B3F4A19CA08C50077829E = {
 						CreatedOnToolsVersion = 6.0;
@@ -185,6 +196,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 				Base,
 			);
@@ -227,6 +239,8 @@
 				321B3F3E19CA08C50077829E /* ViewController.m in Sources */,
 				321B3F5D19CA08DE0077829E /* CEMovieMaker.m in Sources */,
 				321B3F3B19CA08C50077829E /* AppDelegate.m in Sources */,
+				4C0A1AF8296F303E00CC8B55 /* MovieMaker.swift in Sources */,
+				4C0A1ADA296E5BC000CC8B55 /* AVAsset+Extras.m in Sources */,
 				321B3F3819CA08C50077829E /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -349,9 +363,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				INFOPLIST_FILE = CEMovieMaker/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "CEMovieMaker/CEMovieMaker-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -359,15 +378,20 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				INFOPLIST_FILE = CEMovieMaker/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "CEMovieMaker/CEMovieMaker-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
 		321B3F5919CA08C50077829E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SDKROOT)/Developer/Library/Frameworks",
@@ -387,6 +411,7 @@
 		321B3F5A19CA08C50077829E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SDKROOT)/Developer/Library/Frameworks",
@@ -418,6 +443,7 @@
 				321B3F5719CA08C50077829E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		321B3F5819CA08C50077829E /* Build configuration list for PBXNativeTarget "CEMovieMakerTests" */ = {
 			isa = XCConfigurationList;
@@ -426,6 +452,7 @@
 				321B3F5A19CA08C50077829E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
