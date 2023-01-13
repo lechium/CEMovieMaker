@@ -23,46 +23,6 @@ import Photos
         return videoWriterInput?.isReadyForMoreMediaData ?? false
     }
     
-    /*
-     - (AVPlayerItem *)multiplexVideo:(NSURL *)videoURL withAudio:(AVAsset *)audioAsset  {
-         //AVAsset *audioAsset = [AVAsset assetWithURL:audioURL];
-         AVAsset *videoAsset = [AVAsset assetWithURL:videoURL];
-         NSError *error = nil;
-         AVMutableComposition* mixAsset = [[AVMutableComposition alloc] init];
-         AVAssetTrack *vt = [videoAsset firstVideoTrack];
-         if (vt == nil) {
-             vt = [audioAsset firstVideoTrack];
-         }
-         __block AVAssetTrack *at = [audioAsset firstAudioTrack];
-         NSLog(@"duratioN: %f", CMTimeGetSeconds(audioAsset.duration));
-         if (at == nil) {
-             at = [videoAsset firstAudioTrack];
-             if (!at) {
-                 AVPlayerItem *pi = [AVPlayerItem playerItemWithAsset:audioAsset];
-                 //AVPlayer *player = [AVPlayer playerWithPlayerItem:pi];
-                 //[player play];
-                 /*
-                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                     at = [[[pi tracks] firstObject] assetTrack];
-                     NSLog(@"audio track: %@ t:%@ pi: %@", at, [pi tracks], pi);
-                 });*/
-                 at = [[[pi tracks] firstObject] assetTrack];
-             }
-         }
-         NSLog(@"audioTrack: %@", at);
-         AVMutableCompositionTrack* audioTrack = [mixAsset addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
-         [audioTrack insertTimeRange:at.timeRange ofTrack:at atTime:kCMTimeZero error: &error];
-         AVMutableCompositionTrack* videoTrack = [mixAsset addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
-         [videoTrack insertTimeRange:vt.timeRange ofTrack:vt atTime:kCMTimeZero error: &error];
-         //DLog(@"timeDiff: %f", [mixAsset timeDifference]);
-         AVPlayerItem *playerItem = [AVPlayerItem playerItemWithAsset:mixAsset];
-         AVURLAsset *as = (AVURLAsset *)audioAsset;
-         playerItem.originalPaths = @[videoURL, as.URL];
-         playerItem.alternateTitle = [videoURL.lastPathComponent.stringByDeletingPathExtension stringByAppendingPathExtension:@"mp4"];
-         return playerItem;
-     }
-     */
-    
     @objc class func multiplexVideo(_ URL: URL, audioAsset: AVAsset) -> AVPlayerItem {
         let videoAsset = AVAsset(url: URL)
         let mixAsset = AVMutableComposition()
@@ -73,12 +33,21 @@ import Photos
         var at = audioAsset.firstAudioTrack()
         if at == nil {
             at = videoAsset.firstAudioTrack()
+            if at == nil {
+                let pi = AVPlayerItem(asset: audioAsset)
+                print("[DEBUG] at is still null, check player items: \(pi.tracks)")
+                at = pi.tracks.first?.assetTrack
+            }
         }
         print("audioTrack: \(at)")
-        let audioTrack = mixAsset.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-        try? audioTrack?.insertTimeRange(at.timeRange, of: at, at: CMTime.zero)
-        let videoTrack = mixAsset.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-        try? videoTrack?.insertTimeRange(vt.timeRange, of: vt, at: CMTime.zero)
+        if let actualAudio = at {
+            let audioTrack = mixAsset.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            try? audioTrack?.insertTimeRange(actualAudio.timeRange, of: actualAudio, at: CMTime.zero)
+        }
+        if let actualVideo = vt {
+            let videoTrack = mixAsset.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            try? videoTrack?.insertTimeRange(actualVideo.timeRange, of: actualVideo, at: CMTime.zero)
+        }
         let playerItem = AVPlayerItem(asset: mixAsset)
         if let audioA = audioAsset as? AVURLAsset {
             playerItem.originalPaths = [URL, audioA.url];

@@ -14,10 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isHD;
 - (BOOL)hasClosedCaptions;
 - (NSString *)assetPathIfApplicable;
-- (AVAssetTrack *)firstVideoTrack;
-- (AVAssetTrack *)firstAudioTrack;
+- (AVAssetTrack * _Nullable)firstVideoTrack;
+- (AVAssetTrack * _Nullable)firstAudioTrack;
 - (CGFloat)timeDifference;
-- (AVAssetTrack *)firstMuxedTrack;
+- (AVAssetTrack * _Nullable)firstMuxedTrack;
 @end
 
 NS_ASSUME_NONNULL_END

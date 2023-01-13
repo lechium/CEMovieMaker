@@ -10,6 +10,8 @@
 @import Foundation;
 @import UIKit;
 
+NS_ASSUME_NONNULL_BEGIN
+
 typedef void(^CEMovieMakerCompletion)(NSURL *fileURL);
 
 #if __has_feature(objc_generics) || __has_extension(objc_generics)
@@ -37,3 +39,5 @@ typedef void(^CEMovieMakerCompletion)(NSURL *fileURL);
 - (void)createMovieFromImage:(UIImage *)image duration:(NSInteger)duration withCompletion:(CEMovieMakerCompletion)completion;
 + (NSDictionary *)videoSettingsWithCodec:(NSString *)codec withWidth:(CGFloat)width andHeight:(CGFloat)height;
 @end
+
+NS_ASSUME_NONNULL_END
