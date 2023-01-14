@@ -18,6 +18,8 @@
 @interface ViewController ()
 
 @property (nonatomic, strong) CEMovieMaker *movieMaker;
+@property (nonatomic, strong) NSURL *outputURL;
+@property (nonatomic, strong) AVPlayer *players;
 
 @end
 
@@ -73,6 +75,25 @@
     return playerItem;
 }
 
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
+    NSLog(@"keyPath: %@ obj: %@ new: %@", keyPath, object, change[@"new"]);
+    if ([keyPath isEqualToString:@"tracks"]) {
+        NSArray *tracks = change[@"new"];
+        AVPlayerItemTrack *audioTrack = [tracks firstObject];
+        AVAssetTrack *assetTrack = [audioTrack assetTrack];
+        if (assetTrack && self.outputURL) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                //self.players = nil;
+                AVPlayerItem *playerItem = [VideoWriter multiplexVideo:self.outputURL audioTrack:assetTrack];
+                AVPlayerViewController *vc = [[AVPlayerViewController alloc] init];
+                AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem:playerItem];
+                vc.player = player;
+                [self presentViewController:vc animated:true completion:nil];
+            });
+        }
+    }
+}
+
 - (void)process:(id)sender
 {
     NSMutableArray *frames = [[NSMutableArray alloc] init];
@@ -81,16 +102,20 @@
     UIImage *icon1 = [UIImage imageNamed:@"icon1"];
     UIImage *icon2 = [UIImage imageNamed:@"icon2"];
     UIImage *icon3 = [UIImage imageNamed:@"icon3"];
-    //RenderSettings *rs = [RenderSettings new];
-    //ImageAnimator *animator =
-    NSURL *audioURL = [NSURL URLWithString:@"PUT_AUDIO_URL_HERE"];
+
+    NSURL *audioURL = [NSURL URLWithString:@"AUDIO_URL_HERE"];
+    AVAsset *audioAsset = [AVAsset assetWithURL:audioURL];
+    AVPlayerItem *pi = [AVPlayerItem playerItemWithAsset:audioAsset];
+    self.players = [AVPlayer playerWithPlayerItem:pi];
+    [self.players pause];
+    [pi addObserver:self forKeyPath:@"tracks" options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew context:nil];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        AVAsset *audioAsset = [AVAsset assetWithURL:audioURL];
-        NSURL *imageURL = [NSURL URLWithString:@"PUT_IMAGE_URL_HERE"];
+        NSURL *imageURL = [NSURL URLWithString:@"IMAGE_URL_HERE"];
         NSData *imageData = [NSData dataWithContentsOfURL:imageURL];
         UIImage *image = [UIImage imageWithData:imageData];
         NSInteger duration = CMTimeGetSeconds(audioAsset.duration);//(1841696/1000)/2;
+        
         RenderSettings *rs = [RenderSettings new];
         rs.size = image.size;
         rs.targetDuration = duration;
@@ -99,12 +124,24 @@
         ia.images = @[image];
         
         [ia renderWithCompletion:^(NSURL * _Nullable outputURL) {
-            NSLog(@"done render: %@", outputURL);
-            AVPlayerItem *playerItem = [VideoWriter multiplexVideo:outputURL audioAsset:audioAsset];
-            AVPlayerViewController *vc = [[AVPlayerViewController alloc] init];
-            AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem:playerItem];
-            vc.player = player;
-            [self presentViewController:vc animated:true completion:nil];
+            NSLog(@"done render: %@ tracks: %@", outputURL, self.players.currentItem.tracks);
+            if (audioAsset.firstAudioTrack != nil) {
+                AVPlayerItem *playerItem = [VideoWriter multiplexVideo:outputURL audioAsset:audioAsset];
+                VideoWriter *vw = [[VideoWriter alloc] initWithRenderSettings:rs];
+                NSString *outputFile = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/testExport.mp4"];
+                NSLog(@"output file: %@", outputFile);
+                [vw savePlayerItem:playerItem outputFile:outputFile preset:AVAssetExportPresetHighestQuality progress:^(Progress * _Nullable progress) {
+                    NSLog(@"progress: %@", progress);
+                } completion:^(BOOL success, NSString * _Nullable error) {
+                    NSLog(@"success: %d error: %@", success, error);
+                }];
+                AVPlayerViewController *vc = [[AVPlayerViewController alloc] init];
+                AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem:playerItem];
+                vc.player = player;
+                [self presentViewController:vc animated:true completion:nil];
+            } else {
+                self.outputURL = outputURL;
+            }
             //[self viewMovieAtUrl:outputURL];
         }];
         return;
@@ -125,14 +162,21 @@
         
         [self.movieMaker createMovieFromImage:image duration:duration/2 withCompletion:^(NSURL *fileURL) {
             NSLog(@"fileULR: %@", fileURL);
-            [ImageAnimator saveToLibraryWithVideoURL:fileURL];
-            /*
+            //[ImageAnimator saveToLibraryWithVideoURL:fileURL];
+            
             AVPlayerItem *playerItem = [self multiplexVideo:fileURL withAudio:audioAsset];
+            NSString *outputFile = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/testExport.mp4"];
+            NSLog(@"output file: %@", outputFile);
+            [self.movieMaker savePlayerItem:playerItem toOutputFile:outputFile usingPreset:AVAssetExportPresetHighestQuality progress:^(CEProgressClass * _Nonnull pc) {
+                NSLog(@"progress: %@", pc);
+            } completion:^(BOOL success, NSString * _Nonnull error) {
+                NSLog(@"exported with success: %d error: %@", success, error);
+            }];
             AVPlayerViewController *vc = [[AVPlayerViewController alloc] init];
             AVPlayer *player = [[AVPlayer alloc] initWithPlayerItem:playerItem];
             vc.player = player;
             [self presentViewController:vc animated:true completion:nil];
-             */
+             
 //            [self viewMovieAtUrl:fileURL];
         }];
     });

@@ -10,8 +10,12 @@
 @import Foundation;
 @import UIKit;
 
-NS_ASSUME_NONNULL_BEGIN
+#define FM [NSFileManager defaultManager]
 
+NS_ASSUME_NONNULL_BEGIN
+@class CEProgressClass;
+
+typedef void(^taskProgressBlock)(CEProgressClass * _Nonnull pc);
 typedef void(^CEMovieMakerCompletion)(NSURL *fileURL);
 
 #if __has_feature(objc_generics) || __has_extension(objc_generics)
@@ -22,6 +26,17 @@ typedef void(^CEMovieMakerCompletion)(NSURL *fileURL);
     #define CE_GENERIC_IMAGE
 #endif
 
+@interface CEProgressClass: NSObject
+
+CEProgressClass * CEMakeProgress(double elapsedTime, double totalTime, double remainingTime, int pid, NSString * _Nullable processingFile);
+
+@property double elapsedTime;
+@property double totalTime;
+@property double remainingTime;
+@property int pid;
+@property (nonatomic, strong) NSString *processingFile;
+
+@end
 
 @interface CEMovieMaker : NSObject
 
@@ -32,7 +47,7 @@ typedef void(^CEMovieMakerCompletion)(NSURL *fileURL);
 @property (nonatomic, assign) CMTime frameTime;
 @property (nonatomic, strong) NSURL *fileURL;
 @property (nonatomic, copy) CEMovieMakerCompletion completionBlock;
-
+- (void)savePlayerItem:(AVPlayerItem *)playerItem toOutputFile:(NSString *)outputFile usingPreset:(NSString *)preset progress:(taskProgressBlock)progressBlock completion:(void(^)(BOOL success, NSString *error))completionBlock;
 - (instancetype)initWithSettings:(NSDictionary *)videoSettings;
 - (void)createMovieFromImageURLs:(NSArray CE_GENERIC_URL*)urls withCompletion:(CEMovieMakerCompletion)completion;
 - (void)createMovieFromImages:(NSArray CE_GENERIC_IMAGE*)images withCompletion:(CEMovieMakerCompletion)completion;

@@ -7,10 +7,92 @@
 //
 
 #import "CEMovieMaker.h"
+#import "AVAsset+Extras.h"
+
+inline CEProgressClass * CEMakeProgress(double elapsedTime, double totalTime, double remainingTime, int pid, NSString * _Nullable processingFile) {
+    CEProgressClass *pc = [CEProgressClass new];
+    pc.elapsedTime = elapsedTime;
+    pc.totalTime = totalTime;
+    pc.remainingTime = remainingTime;
+    pc.pid = pid;
+    pc.processingFile = processingFile;
+    return pc;
+}
+
+@implementation CEProgressClass
+
+- (NSString *)description {
+    NSString *og = [super description];
+    return [NSString stringWithFormat:@"%@ elapsed: %f total: %f remaining: %f for: %@", og, _elapsedTime, _totalTime, _remainingTime, _processingFile];
+}
+
+@end
+
+@interface CEMovieMaker()
+@property AVAssetExportSession *exportSession;
+@property NSTimer *exportTimer;
+@property NSDate *start;
+@end
 
 typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
 
 @implementation CEMovieMaker
+
+- (void)savePlayerItem:(AVPlayerItem *)playerItem toOutputFile:(NSString *)outputFile usingPreset:(NSString *)preset progress:(taskProgressBlock)progressBlock completion:(void(^)(BOOL success, NSString *error))completionBlock {
+    self.start = [NSDate date];
+    if ([FM fileExistsAtPath:outputFile]){
+        [FM removeItemAtPath:outputFile error:nil];
+    }
+    self.exportSession = [AVAssetExportSession exportSessionWithAsset:playerItem.asset presetName:preset];
+    self.exportSession.timeRange = playerItem.asset.exportRange;
+    self.exportTimer = [NSTimer scheduledTimerWithTimeInterval:0.1 repeats:true block:^(NSTimer * _Nonnull timer) {
+        NSTimeInterval sec = [[NSDate date] timeIntervalSinceDate:self.start];
+        CGFloat progress = self.exportSession.progress;
+        //DLog(@"progress: %f", progress);
+        if(self.exportSession.progress == 1 || self.exportSession.status == AVAssetExportSessionStatusCancelled || self.exportSession.status == AVAssetExportSessionStatusCompleted || self.exportSession.status == AVAssetExportSessionStatusFailed) {
+            //DLog(@"doneski");
+            [self.exportTimer invalidate];
+            self.exportTimer = nil;
+        } else {
+            double speed = progress/sec;
+            double left = (1.0 - progress)/speed;
+            if (progressBlock) {
+                progressBlock(CEMakeProgress(self.exportSession.progress, 1.0, left, -1, outputFile.lastPathComponent));
+            }
+        }
+    }];
+    
+    NSURL *outputURL = [NSURL fileURLWithPath:outputFile];
+    self.exportSession.outputURL = outputURL;
+    self.exportSession.outputFileType = AVFileTypeMPEG4;
+    
+    [self.exportSession exportAsynchronouslyWithCompletionHandler:^{
+        switch ([self.exportSession status]) {
+            case AVAssetExportSessionStatusFailed:
+                
+                NSLog(@"Export failed: %@", [[self.exportSession error] localizedDescription]);
+                NSLog(@"%@", [[self.exportSession error] localizedFailureReason]);
+                NSLog(@"%@", [[self.exportSession error] localizedRecoveryOptions]);
+                NSLog(@"%@", [[self.exportSession error] localizedRecoverySuggestion]);
+                if (completionBlock){
+                    completionBlock(false, [[self.exportSession error] localizedDescription]);
+                }
+                break;
+            case AVAssetExportSessionStatusCancelled:
+                if (completionBlock){
+                    completionBlock(false, @"Export canceled");
+                }
+                NSLog(@"Export canceled");
+                break;
+            default:
+                if (completionBlock){
+                    completionBlock(true, nil);
+                }
+                NSLog(@"Export succeded");
+                break;
+        }
+    }];
+}
 
 - (instancetype)initWithSettings:(NSDictionary *)videoSettings;
 {
@@ -85,7 +167,7 @@ typedef UIImage*(^CEMovieMakerUIImageExtractor)(NSObject* inputObject);
             CVPixelBufferRef sampleBuffer = [self newPixelBufferFromCGImage:[image CGImage]];
             [self.bufferAdapter appendPixelBuffer:sampleBuffer withPresentationTime:kCMTimeZero];
             //CMTime presentTime = CMTimeAdd(kCMTimeZero, CMTimeMakeWithSeconds(duration, NSEC_PER_SEC));
-            [self.bufferAdapter appendPixelBuffer:sampleBuffer withPresentationTime:CMTimeMakeWithSeconds(duration, 600)];
+            [self.bufferAdapter appendPixelBuffer:sampleBuffer withPresentationTime:CMTimeMakeWithSeconds(duration/2, 600)];
             CFRelease(sampleBuffer);
         }
         [self.writerInput markAsFinished];

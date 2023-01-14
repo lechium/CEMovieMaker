@@ -11,6 +11,23 @@ import AVFoundation
 import UIKit
 import Photos
 
+@objc class Progress: NSObject {
+    
+    @objc var elapsedTime: Double = 0.0
+    @objc var totalTime: Double = 0.0
+    @objc var remainingTime: Double = 0.0
+    @objc var pid: Int = 0
+    @objc var processingFile: String!
+    
+    @objc init(_ elapsed: Double, total: Double, remaining: Double, file: String) {
+        super.init()
+        elapsedTime = elapsed
+        totalTime = total
+        remainingTime = remaining
+        processingFile = file
+    }
+}
+
 @objc class VideoWriter: NSObject {
     
     let renderSettings: RenderSettings
@@ -18,9 +35,75 @@ import Photos
     var videoWriter: AVAssetWriter!
     var videoWriterInput: AVAssetWriterInput!
     var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor!
+    var exportSession: AVAssetExportSession!
+    var exportTimer: Timer?
+    var startTime: Date!
     
     var isReadyForData: Bool {
         return videoWriterInput?.isReadyForMoreMediaData ?? false
+    }
+    
+    @objc func savePlayerItem(_ playerItem: AVPlayerItem, outputFile: String, preset: String, progress: ((Progress?)->Void)?, completion: ((Bool, String?)->Void)?) {
+        startTime = Date()
+        if FileManager.default.fileExists(atPath: outputFile) {
+            try? FileManager.default.removeItem(atPath: outputFile)
+        }
+        
+        exportSession = AVAssetExportSession(asset: playerItem.asset, presetName: preset)
+        exportTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(0.1), repeats: true, block: { Timer in
+            let exportProgress = self.exportSession.progress
+            
+            let sec = Date().timeIntervalSince(self.startTime)
+            if exportProgress == 1 || self.exportSession.status == .cancelled || self.exportSession.status == .completed || self.exportSession.status == .failed {
+                self.exportTimer?.invalidate()
+                self.exportTimer = nil
+            } else {
+                let speed = exportProgress / Float(sec)
+                let left = (1.0 - exportProgress)/speed;
+                progress?(Progress(Double(exportProgress), total: 1.0, remaining: Double(left), file: outputFile))
+            }
+        })
+        
+        let outputURL = URL(fileURLWithPath: outputFile)
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        
+        exportSession.exportAsynchronously {
+            switch self.exportSession.status {
+            case .failed:
+                print ("failed")
+                completion?(false, "failed")
+            case .cancelled:
+                print ("cancelled")
+                completion?(false, "cancelled")
+            case .unknown:
+                print ("unknown")
+            case .waiting:
+                print ("waiting")
+            case .exporting:
+                print ("exporting")
+            case .completed:
+                completion?(true, nil)
+            @unknown default:
+                print ("unknown default")
+            }
+        }
+        
+    }
+    
+    @objc class func multiplexVideo(_ URL: URL, audioTrack: AVAssetTrack) -> AVPlayerItem {
+        let videoAsset = AVAsset(url: URL)
+        let mixAsset = AVMutableComposition()
+        let vt = videoAsset.firstVideoTrack()
+        print("audioTrack: \(audioTrack.timeRange)")
+        let at = mixAsset.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        try? at?.insertTimeRange(audioTrack.timeRange, of: audioTrack, at: CMTime.zero)
+        if let actualVideo = vt {
+            let videoTrack = mixAsset.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            try? videoTrack?.insertTimeRange(actualVideo.timeRange, of: actualVideo, at: CMTime.zero)
+        }
+        let playerItem = AVPlayerItem(asset: mixAsset)
+        return playerItem
     }
     
     @objc class func multiplexVideo(_ URL: URL, audioAsset: AVAsset) -> AVPlayerItem {
@@ -39,7 +122,7 @@ import Photos
                 at = pi.tracks.first?.assetTrack
             }
         }
-        print("audioTrack: \(at)")
+        print("audioTrack: \(at) tr: \(at?.timeRange)")
         if let actualAudio = at {
             let audioTrack = mixAsset.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
             try? audioTrack?.insertTimeRange(actualAudio.timeRange, of: actualAudio, at: CMTime.zero)
@@ -91,7 +174,7 @@ import Photos
         return pixelBuffer
     }
     
-    init(renderSettings: RenderSettings) {
+    @objc init(renderSettings: RenderSettings) {
         self.renderSettings = renderSettings
     }
     
