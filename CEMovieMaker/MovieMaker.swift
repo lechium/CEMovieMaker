@@ -66,7 +66,7 @@ import Photos
         
         let outputURL = URL(fileURLWithPath: outputFile)
         exportSession.outputURL = outputURL
-        exportSession.outputFileType = .mp4
+        exportSession.outputFileType = renderSettings.fileType
         
         exportSession.exportAsynchronously {
             switch self.exportSession.status {
@@ -265,6 +265,7 @@ import Photos
     @objc var size : CGSize = .zero
     @objc var fps: Int32 = 1   // frames per second
     @objc var targetDuration: Float64 = 0.0
+    @objc var fileType = AVFileType.mp4
     @objc var avCodecKey = AVVideoCodecType.h264
     @objc var videoFilename = "render"
     @objc var videoFilenameExt = "mp4"

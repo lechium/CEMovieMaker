@@ -103,7 +103,7 @@
     UIImage *icon2 = [UIImage imageNamed:@"icon2"];
     UIImage *icon3 = [UIImage imageNamed:@"icon3"];
 
-    NSURL *audioURL = [NSURL URLWithString:@"AUDIO_URL_HERE"];
+    NSURL *audioURL = [NSURL URLWithString:@"AUDIO_FILE"];
     AVAsset *audioAsset = [AVAsset assetWithURL:audioURL];
     AVPlayerItem *pi = [AVPlayerItem playerItemWithAsset:audioAsset];
     self.players = [AVPlayer playerWithPlayerItem:pi];
@@ -111,7 +111,7 @@
     [pi addObserver:self forKeyPath:@"tracks" options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew context:nil];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        NSURL *imageURL = [NSURL URLWithString:@"IMAGE_URL_HERE"];
+        NSURL *imageURL = [NSURL URLWithString:@"IMAGE_FILE"];
         NSData *imageData = [NSData dataWithContentsOfURL:imageURL];
         UIImage *image = [UIImage imageWithData:imageData];
         NSInteger duration = CMTimeGetSeconds(audioAsset.duration);//(1841696/1000)/2;
@@ -119,6 +119,8 @@
         RenderSettings *rs = [RenderSettings new];
         rs.size = image.size;
         rs.targetDuration = duration;
+        rs.videoFilenameExt = @"mov";
+        rs.fileType = AVFileTypeQuickTimeMovie;
         NSLog(@"td: %f d: %lu", rs.targetDuration, duration);
         ImageAnimator *ia = [[ImageAnimator alloc] initWithRenderSettings:rs];
         ia.images = @[image];
@@ -128,9 +130,10 @@
             if (audioAsset.firstAudioTrack != nil) {
                 AVPlayerItem *playerItem = [VideoWriter multiplexVideo:outputURL audioAsset:audioAsset];
                 VideoWriter *vw = [[VideoWriter alloc] initWithRenderSettings:rs];
-                NSString *outputFile = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/testExport.mp4"];
+                NSString *outputFile = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/testExport.mov"];
                 NSLog(@"output file: %@", outputFile);
-                [vw savePlayerItem:playerItem outputFile:outputFile preset:AVAssetExportPresetHighestQuality progress:^(Progress * _Nullable progress) {
+                //AVAssetExportPresetHighestQuality
+                [vw savePlayerItem:playerItem outputFile:outputFile preset:AVAssetExportPresetPassthrough progress:^(Progress * _Nullable progress) {
                     NSLog(@"progress: %@", progress);
                 } completion:^(BOOL success, NSString * _Nullable error) {
                     NSLog(@"success: %d error: %@", success, error);
