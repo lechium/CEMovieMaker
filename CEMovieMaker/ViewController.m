@@ -129,11 +129,10 @@
             NSLog(@"done render: %@ tracks: %@", outputURL, self.players.currentItem.tracks);
             if (audioAsset.firstAudioTrack != nil) {
                 AVPlayerItem *playerItem = [VideoWriter multiplexVideo:outputURL audioAsset:audioAsset];
-                VideoWriter *vw = [[VideoWriter alloc] initWithRenderSettings:rs];
                 NSString *outputFile = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/testExport.mov"];
                 NSLog(@"output file: %@", outputFile);
                 //AVAssetExportPresetHighestQuality
-                [vw savePlayerItem:playerItem outputFile:outputFile preset:AVAssetExportPresetPassthrough progress:^(Progress * _Nullable progress) {
+                [ia savePlayerItem:playerItem outputFile:outputFile preset:AVAssetExportPresetPassthrough progress:^(Progress * _Nullable progress) {
                     NSLog(@"progress: %@", progress);
                 } completion:^(BOOL success, NSString * _Nullable error) {
                     NSLog(@"success: %d error: %@", success, error);

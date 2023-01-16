@@ -43,54 +43,6 @@ import Photos
         return videoWriterInput?.isReadyForMoreMediaData ?? false
     }
     
-    @objc func savePlayerItem(_ playerItem: AVPlayerItem, outputFile: String, preset: String, progress: ((Progress?)->Void)?, completion: ((Bool, String?)->Void)?) {
-        startTime = Date()
-        if FileManager.default.fileExists(atPath: outputFile) {
-            try? FileManager.default.removeItem(atPath: outputFile)
-        }
-        
-        exportSession = AVAssetExportSession(asset: playerItem.asset, presetName: preset)
-        exportTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(0.1), repeats: true, block: { Timer in
-            let exportProgress = self.exportSession.progress
-            
-            let sec = Date().timeIntervalSince(self.startTime)
-            if exportProgress == 1 || self.exportSession.status == .cancelled || self.exportSession.status == .completed || self.exportSession.status == .failed {
-                self.exportTimer?.invalidate()
-                self.exportTimer = nil
-            } else {
-                let speed = exportProgress / Float(sec)
-                let left = (1.0 - exportProgress)/speed;
-                progress?(Progress(Double(exportProgress), total: 1.0, remaining: Double(left), file: outputFile))
-            }
-        })
-        
-        let outputURL = URL(fileURLWithPath: outputFile)
-        exportSession.outputURL = outputURL
-        exportSession.outputFileType = renderSettings.fileType
-        
-        exportSession.exportAsynchronously {
-            switch self.exportSession.status {
-            case .failed:
-                print ("failed")
-                completion?(false, "failed")
-            case .cancelled:
-                print ("cancelled")
-                completion?(false, "cancelled")
-            case .unknown:
-                print ("unknown")
-            case .waiting:
-                print ("waiting")
-            case .exporting:
-                print ("exporting")
-            case .completed:
-                completion?(true, nil)
-            @unknown default:
-                print ("unknown default")
-            }
-        }
-        
-    }
-    
     @objc class func multiplexVideo(_ URL: URL, audioTrack: AVAssetTrack) -> AVPlayerItem {
         let videoAsset = AVAsset(url: URL)
         let mixAsset = AVMutableComposition()
@@ -291,7 +243,59 @@ import Photos
     @objc let videoWriter: VideoWriter
     @objc var images: [UIImage]!
     
+    var exportSession: AVAssetExportSession!
+    var exportTimer: Timer?
+    var startTime: Date!
+    
     var frameNum = 0
+    
+    @objc func savePlayerItem(_ playerItem: AVPlayerItem, outputFile: String, preset: String, progress: ((Progress?)->Void)?, completion: ((Bool, String?)->Void)?) {
+        startTime = Date()
+        if FileManager.default.fileExists(atPath: outputFile) {
+            try? FileManager.default.removeItem(atPath: outputFile)
+        }
+        
+        exportSession = AVAssetExportSession(asset: playerItem.asset, presetName: preset)
+        exportTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(0.1), repeats: true, block: { Timer in
+            let exportProgress = self.exportSession.progress
+            
+            let sec = Date().timeIntervalSince(self.startTime)
+            if exportProgress == 1 || self.exportSession.status == .cancelled || self.exportSession.status == .completed || self.exportSession.status == .failed {
+                self.exportTimer?.invalidate()
+                self.exportTimer = nil
+            } else {
+                let speed = exportProgress / Float(sec)
+                let left = (1.0 - exportProgress)/speed;
+                progress?(Progress(Double(exportProgress), total: 1.0, remaining: Double(left), file: outputFile))
+            }
+        })
+        
+        let outputURL = URL(fileURLWithPath: outputFile)
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = settings.fileType
+        
+        exportSession.exportAsynchronously {
+            switch self.exportSession.status {
+            case .failed:
+                print ("failed")
+                completion?(false, "failed")
+            case .cancelled:
+                print ("cancelled")
+                completion?(false, "cancelled")
+            case .unknown:
+                print ("unknown")
+            case .waiting:
+                print ("waiting")
+            case .exporting:
+                print ("exporting")
+            case .completed:
+                completion?(true, nil)
+            @unknown default:
+                print ("unknown default")
+            }
+        }
+        
+    }
     
     @objc class func saveToLibrary(videoURL: URL) {
         PHPhotoLibrary.requestAuthorization { status in
